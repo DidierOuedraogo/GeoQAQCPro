@@ -3,7 +3,25 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>GeoQAQC - Contrôle Qualité Analyses Chimiques des Roches</title>
+    <title>GeoQAQC: Pour la Fiabilité des Données Analytiques l'Exploration Minière</title>
+
+    <!-- Icône de l'application (favicon généré en SVG inline via data URI) -->
+    <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,
+    %3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E
+      %3Cdefs%3E
+        %3ClinearGradient id='g' x1='0' y1='0' x2='1' y2='1'%3E
+          %3Cstop offset='0%25' stop-color='%233498db'/%3E
+          %3Cstop offset='100%25' stop-color='%232c3e50'/%3E
+        %3C/linearGradient%3E
+      %3C/defs%3E
+      %3Crect x='2' y='2' width='60' height='60' rx='10' ry='10' fill='url(%23g)'/%3E
+      %3Cpolyline points='10,42 22,26 34,34 48,16 54,22' fill='none' stroke='%23ecf0f1' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'/%3E
+      %3Ccircle cx='22' cy='26' r='2.5' fill='%23e74c3c'/%3E
+      %3Ccircle cx='34' cy='34' r='2.5' fill='%23e74c3c'/%3E
+      %3Ccircle cx='48' cy='16' r='2.5' fill='%23e74c3c'/%3E
+      %3Ctext x='14' y='54' font-family='Segoe UI, sans-serif' font-size='10' fill='%23ecf0f1'%3EGQ%3C/text%3E
+    %3C/svg%3E">
+
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
     <style>
@@ -13,6 +31,7 @@
             --accent-color: #e74c3c;
             --light-color: #ecf0f1;
             --dark-color: #34495e;
+            --muted-color: #7f8c8d;
         }
         
         * {
@@ -33,8 +52,15 @@
         
         h1 {
             text-align: center;
-            margin-bottom: 20px;
+            margin-bottom: 5px;
             color: var(--primary-color);
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 0.95rem;
+            color: var(--muted-color);
+            margin-bottom: 20px;
         }
         
         .tab-container {
@@ -208,6 +234,30 @@
         .conditional-input {
             margin-left: 25px;
         }
+
+        .status-ok {
+            color: green;
+            font-weight: 600;
+        }
+
+        .status-error {
+            color: #e74c3c;
+            font-weight: 600;
+        }
+
+        .status-warning {
+            color: #f39c12;
+            font-weight: 600;
+        }
+
+        footer {
+            margin-top: 30px;
+            padding-top: 10px;
+            border-top: 1px solid #ddd;
+            text-align: center;
+            font-size: 0.9rem;
+            color: var(--muted-color);
+        }
         
         @media (max-width: 768px) {
             .tab-buttons {
@@ -221,12 +271,17 @@
             .column-selector {
                 grid-template-columns: 1fr;
             }
+
+            body {
+                padding: 10px;
+            }
         }
     </style>
 </head>
 <body>
     <div class="logo">Geo<span>QAQC</span></div>
-    <h1>Contrôle Qualité des Analyses Chimiques des Roches</h1>
+    <h1>Pour la Fiabilité des Données Analytiques de l'Exploration Minière</h1>
+    <p class="subtitle">Auteur&nbsp;: Didier Ouedraogo, P.Geo.</p>
     
     <div class="tab-container">
         <div class="tab-buttons">
@@ -371,6 +426,10 @@
             </div>
         </div>
     </div>
+
+    <footer>
+        Développé par Didier Ouedraogo, P.Geo. &mdash; 2025
+    </footer>
     
     <script>
         // Gestion des onglets
@@ -381,7 +440,6 @@
             button.addEventListener('click', () => {
                 const tabId = button.getAttribute('data-tab');
                 
-                // Active le bouton et le contenu correspondant
                 tabButtons.forEach(btn => btn.classList.remove('active'));
                 tabContents.forEach(content => content.classList.remove('active'));
                 
@@ -687,7 +745,7 @@
                                             `Écart: ${deviation.toFixed(2)}%`
                                         ];
                                         
-                                        if (zScore !== null) {
+                                        if (zScore !== null && !isNaN(zScore)) {
                                             labels.push(`Z-score: ${zScore.toFixed(2)}`);
                                         }
                                         
@@ -792,11 +850,14 @@
             const sumY = y.reduce((a, b) => a + b, 0);
             const sumXY = x.reduce((a, b, i) => a + b * y[i], 0);
             const sumXX = x.reduce((a, b) => a + b * b, 0);
+            const sumYY = y.reduce((a, b) => a + b * b, 0);
             
-            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
-            const intercept = (sumY - slope * sumX) / n;
-            const r = (n * sumXY - sumX * sumY) / 
-                    Math.sqrt((n * sumXX - sumX * sumX) * (n * y.reduce((a, b) => a + b * b, 0) - sumY * sumY));
+            const numerator = n * sumXY - sumX * sumY;
+            const denominator = (n * sumXX - sumX * sumX);
+            const slope = denominator !== 0 ? numerator / denominator : 0;
+            const intercept = n !== 0 ? (sumY - slope * sumX) / n : 0;
+            const rDenom = Math.sqrt((n * sumXX - sumX * sumX) * (n * sumYY - sumY * sumY));
+            const r = rDenom !== 0 ? numerator / rDenom : 0;
             
             // Calcul des statistiques
             const differences = data.map(item => Math.abs(item.replicate - item.original));
@@ -817,7 +878,7 @@
             // Trouver les valeurs min et max pour définir les limites du graphique
             const minVal = Math.min(Math.min(...x), Math.min(...y));
             const maxVal = Math.max(Math.max(...x), Math.max(...y));
-            const range = maxVal - minVal;
+            const range = maxVal - minVal || 1;
             
             // Créer des points pour la ligne de régression
             const regressionPoints = [];
@@ -951,7 +1012,7 @@
                     <tbody>
             `;
             
-            data.forEach((item, index) => {
+            data.forEach((item) => {
                 const diffAbs = Math.abs(item.replicate - item.original);
                 const avg = (item.original + item.replicate) / 2;
                 const diffRel = avg !== 0 ? (Math.abs(item.replicate - item.original) / avg) * 100 : 0;
