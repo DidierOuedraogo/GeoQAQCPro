@@ -1,0 +1,1137 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GeoQAQC - Contrôle Qualité Analyses Chimiques des Roches</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/papaparse@5.3.0/papaparse.min.js"></script>
+    <style>
+        :root {
+            --primary-color: #2c3e50;
+            --secondary-color: #3498db;
+            --accent-color: #e74c3c;
+            --light-color: #ecf0f1;
+            --dark-color: #34495e;
+        }
+        
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+        }
+        
+        body {
+            background-color: var(--light-color);
+            color: var(--dark-color);
+            line-height: 1.6;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 20px;
+            color: var(--primary-color);
+        }
+        
+        .tab-container {
+            margin-bottom: 20px;
+        }
+        
+        .tab-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .tab-button {
+            padding: 10px 15px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            cursor: pointer;
+            border-radius: 5px;
+            transition: background-color 0.3s;
+        }
+        
+        .tab-button:hover {
+            background-color: var(--secondary-color);
+        }
+        
+        .tab-button.active {
+            background-color: var(--secondary-color);
+        }
+        
+        .tab-content {
+            display: none;
+            padding: 20px;
+            background-color: white;
+            border-radius: 5px;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        }
+        
+        .tab-content.active {
+            display: block;
+        }
+        
+        .form-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+        }
+        
+        select, input, textarea {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-size: 16px;
+        }
+        
+        textarea {
+            min-height: 150px;
+            resize: vertical;
+        }
+        
+        button {
+            background-color: var(--secondary-color);
+            color: white;
+            border: none;
+            padding: 10px 15px;
+            cursor: pointer;
+            border-radius: 4px;
+            font-size: 16px;
+            margin-top: 10px;
+        }
+        
+        button:hover {
+            background-color: var(--primary-color);
+        }
+        
+        .chart-container {
+            position: relative;
+            margin: 20px auto;
+            width: 100%;
+            height: 400px;
+        }
+        
+        .results {
+            margin-top: 20px;
+            padding: 15px;
+            background-color: var(--light-color);
+            border-radius: 5px;
+        }
+        
+        .crm-settings {
+            display: none;
+            margin-top: 15px;
+            padding: 15px;
+            background-color: #f8f9fa;
+            border-radius: 5px;
+            border: 1px solid #ddd;
+        }
+        
+        .column-selector {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+        
+        .column-option {
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 15px;
+        }
+        
+        table, th, td {
+            border: 1px solid #ddd;
+        }
+        
+        th, td {
+            padding: 10px;
+            text-align: left;
+        }
+        
+        th {
+            background-color: var(--primary-color);
+            color: white;
+        }
+        
+        tr:nth-child(even) {
+            background-color: #f2f2f2;
+        }
+
+        .logo {
+            text-align: center;
+            font-size: 2em;
+            font-weight: bold;
+            color: var(--primary-color);
+            margin-bottom: 10px;
+        }
+
+        .logo span {
+            color: var(--secondary-color);
+        }
+
+        .tolerance-options {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            margin-top: 10px;
+        }
+
+        .radio-group {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .radio-group input[type="radio"] {
+            width: auto;
+        }
+
+        .conditional-input {
+            margin-left: 25px;
+        }
+        
+        @media (max-width: 768px) {
+            .tab-buttons {
+                flex-direction: column;
+            }
+            
+            .chart-container {
+                height: 300px;
+            }
+            
+            .column-selector {
+                grid-template-columns: 1fr;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="logo">Geo<span>QAQC</span></div>
+    <h1>Contrôle Qualité des Analyses Chimiques des Roches</h1>
+    
+    <div class="tab-container">
+        <div class="tab-buttons">
+            <button class="tab-button active" data-tab="type">Type de Contrôle</button>
+            <button class="tab-button" data-tab="paste">Coller les Données</button>
+            <button class="tab-button" data-tab="import">Importer les Données</button>
+            <button class="tab-button" data-tab="analyze">Analyse</button>
+        </div>
+        
+        <div id="type-tab" class="tab-content active">
+            <h2>Choisir le Type de Carte de Contrôle</h2>
+            <div class="form-group">
+                <label for="control-type">Type de contrôle:</label>
+                <select id="control-type">
+                    <option value="crm">Standards CRM</option>
+                    <option value="blank">Blancs</option>
+                    <option value="duplicate">Duplicatas (nuage de points et régression)</option>
+                </select>
+            </div>
+            
+            <div id="crm-settings" class="crm-settings">
+                <div class="form-group">
+                    <label for="reference-value">Valeur de référence:</label>
+                    <input type="number" id="reference-value" step="0.0001">
+                </div>
+                <div class="form-group">
+                    <label for="reference-stddev">Écart-type de référence:</label>
+                    <input type="number" id="reference-stddev" step="0.0001">
+                </div>
+                <div class="form-group">
+                    <label>Type de tolérance:</label>
+                    <div class="tolerance-options">
+                        <div class="radio-group">
+                            <input type="radio" id="tolerance-percent" name="tolerance-type" value="percent" checked>
+                            <label for="tolerance-percent">Pourcentage (%)</label>
+                        </div>
+                        <div class="conditional-input" id="percent-input">
+                            <input type="number" id="tolerance-percent-value" value="10" min="0" max="100">
+                        </div>
+                        
+                        <div class="radio-group">
+                            <input type="radio" id="tolerance-stddev" name="tolerance-type" value="stddev">
+                            <label for="tolerance-stddev">Multiple de l'écart-type</label>
+                        </div>
+                        <div class="conditional-input" id="stddev-input" style="display:none;">
+                            <input type="number" id="tolerance-stddev-value" value="2" min="0" step="0.1">
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="next-to-data" class="next-button">Suivant</button>
+        </div>
+        
+        <div id="paste-tab" class="tab-content">
+            <h2>Coller les Données</h2>
+            <div class="form-group">
+                <label for="pasted-data">Collez vos données (format CSV ou tableau séparé par des tabulations):</label>
+                <textarea id="pasted-data" placeholder="ID,Élément1,Élément2,Élément3..."></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label for="data-separator">Séparateur:</label>
+                <select id="data-separator">
+                    <option value=",">Virgule (,)</option>
+                    <option value=";">Point-virgule (;)</option>
+                    <option value="\t">Tabulation</option>
+                </select>
+            </div>
+            
+            <button id="process-pasted-data">Traiter les Données</button>
+        </div>
+        
+        <div id="import-tab" class="tab-content">
+            <h2>Importer les Données</h2>
+            <div class="form-group">
+                <label for="file-input">Choisir un fichier CSV:</label>
+                <input type="file" id="file-input" accept=".csv, .txt">
+            </div>
+            
+            <div class="form-group">
+                <label for="file-separator">Séparateur:</label>
+                <select id="file-separator">
+                    <option value=",">Virgule (,)</option>
+                    <option value=";">Point-virgule (;)</option>
+                    <option value="\t">Tabulation</option>
+                </select>
+            </div>
+            
+            <button id="process-imported-data">Traiter les Données</button>
+        </div>
+        
+        <div id="analyze-tab" class="tab-content">
+            <h2>Analyse des Données</h2>
+            
+            <div id="column-selection" class="form-group" style="display:none;">
+                <h3>Sélection des Colonnes</h3>
+                <div id="column-selection-crm" style="display:none;">
+                    <div class="form-group">
+                        <label for="crm-id-column">Colonne ID/échantillon:</label>
+                        <select id="crm-id-column"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="crm-value-column">Colonne des valeurs mesurées:</label>
+                        <select id="crm-value-column"></select>
+                    </div>
+                </div>
+                
+                <div id="column-selection-duplicate" style="display:none;">
+                    <div class="form-group">
+                        <label for="duplicate-original-column">Colonne des valeurs originales:</label>
+                        <select id="duplicate-original-column"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="duplicate-replicate-column">Colonne des valeurs dupliquées:</label>
+                        <select id="duplicate-replicate-column"></select>
+                    </div>
+                </div>
+                
+                <div id="column-selection-blank" style="display:none;">
+                    <div class="form-group">
+                        <label for="blank-id-column">Colonne ID/échantillon:</label>
+                        <select id="blank-id-column"></select>
+                    </div>
+                    <div class="form-group">
+                        <label for="blank-value-column">Colonne des valeurs mesurées:</label>
+                        <select id="blank-value-column"></select>
+                    </div>
+                </div>
+            </div>
+            
+            <button id="generate-chart">Générer la Carte de Contrôle</button>
+            
+            <div class="chart-container">
+                <canvas id="chart"></canvas>
+            </div>
+            
+            <div id="results" class="results" style="display:none;">
+                <h3>Résultats</h3>
+                <div id="stats-summary"></div>
+                <div id="data-table-container"></div>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        // Gestion des onglets
+        const tabButtons = document.querySelectorAll('.tab-button');
+        const tabContents = document.querySelectorAll('.tab-content');
+        
+        tabButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                const tabId = button.getAttribute('data-tab');
+                
+                // Active le bouton et le contenu correspondant
+                tabButtons.forEach(btn => btn.classList.remove('active'));
+                tabContents.forEach(content => content.classList.remove('active'));
+                
+                button.classList.add('active');
+                document.getElementById(`${tabId}-tab`).classList.add('active');
+            });
+        });
+        
+        // Variables globales
+        let parsedData = null;
+        let headers = [];
+        let chartInstance = null;
+        
+        // Gestion du type de contrôle
+        const controlTypeSelect = document.getElementById('control-type');
+        const crmSettings = document.getElementById('crm-settings');
+        
+        controlTypeSelect.addEventListener('change', () => {
+            if (controlTypeSelect.value === 'crm') {
+                crmSettings.style.display = 'block';
+            } else {
+                crmSettings.style.display = 'none';
+            }
+        });
+        
+        // Gestion du type de tolérance
+        const tolerancePercentRadio = document.getElementById('tolerance-percent');
+        const toleranceStddevRadio = document.getElementById('tolerance-stddev');
+        const percentInput = document.getElementById('percent-input');
+        const stddevInput = document.getElementById('stddev-input');
+        
+        tolerancePercentRadio.addEventListener('change', () => {
+            percentInput.style.display = 'block';
+            stddevInput.style.display = 'none';
+        });
+        
+        toleranceStddevRadio.addEventListener('change', () => {
+            percentInput.style.display = 'none';
+            stddevInput.style.display = 'block';
+        });
+        
+        // Navigation entre les onglets
+        document.getElementById('next-to-data').addEventListener('click', () => {
+            document.querySelector('[data-tab="paste"]').click();
+        });
+        
+        // Traitement des données collées
+        document.getElementById('process-pasted-data').addEventListener('click', () => {
+            const data = document.getElementById('pasted-data').value;
+            const separator = document.getElementById('data-separator').value === '\\t' 
+                ? '\t' 
+                : document.getElementById('data-separator').value;
+            
+            if (!data) {
+                alert("Veuillez coller des données avant de continuer.");
+                return;
+            }
+            
+            parsedData = Papa.parse(data, {
+                delimiter: separator,
+                header: true,
+                skipEmptyLines: true
+            });
+            
+            if (parsedData.errors.length > 0) {
+                alert("Erreur lors de l'analyse des données: " + parsedData.errors[0].message);
+                return;
+            }
+            
+            headers = parsedData.meta.fields;
+            prepareColumnSelection(headers);
+            document.querySelector('[data-tab="analyze"]').click();
+        });
+        
+        // Traitement des données importées
+        document.getElementById('process-imported-data').addEventListener('click', () => {
+            const fileInput = document.getElementById('file-input');
+            const separator = document.getElementById('file-separator').value === '\\t' 
+                ? '\t' 
+                : document.getElementById('file-separator').value;
+            
+            if (!fileInput.files || !fileInput.files[0]) {
+                alert("Veuillez sélectionner un fichier avant de continuer.");
+                return;
+            }
+            
+            const file = fileInput.files[0];
+            const reader = new FileReader();
+            
+            reader.onload = function(e) {
+                const csvData = e.target.result;
+                parsedData = Papa.parse(csvData, {
+                    delimiter: separator,
+                    header: true,
+                    skipEmptyLines: true
+                });
+                
+                if (parsedData.errors.length > 0) {
+                    alert("Erreur lors de l'analyse du fichier: " + parsedData.errors[0].message);
+                    return;
+                }
+                
+                headers = parsedData.meta.fields;
+                prepareColumnSelection(headers);
+                document.querySelector('[data-tab="analyze"]').click();
+            };
+            
+            reader.readAsText(file);
+        });
+        
+        // Préparation de la sélection des colonnes
+        function prepareColumnSelection(headers) {
+            document.getElementById('column-selection').style.display = 'block';
+            
+            const controlType = document.getElementById('control-type').value;
+            document.getElementById('column-selection-crm').style.display = 'none';
+            document.getElementById('column-selection-duplicate').style.display = 'none';
+            document.getElementById('column-selection-blank').style.display = 'none';
+            
+            if (controlType === 'crm') {
+                document.getElementById('column-selection-crm').style.display = 'block';
+                populateSelectWithOptions('crm-id-column', headers);
+                populateSelectWithOptions('crm-value-column', headers);
+            } else if (controlType === 'duplicate') {
+                document.getElementById('column-selection-duplicate').style.display = 'block';
+                populateSelectWithOptions('duplicate-original-column', headers);
+                populateSelectWithOptions('duplicate-replicate-column', headers);
+            } else if (controlType === 'blank') {
+                document.getElementById('column-selection-blank').style.display = 'block';
+                populateSelectWithOptions('blank-id-column', headers);
+                populateSelectWithOptions('blank-value-column', headers);
+            }
+        }
+        
+        // Remplir les sélecteurs avec les options
+        function populateSelectWithOptions(selectId, options) {
+            const select = document.getElementById(selectId);
+            select.innerHTML = '';
+            
+            options.forEach(option => {
+                const optElement = document.createElement('option');
+                optElement.value = option;
+                optElement.textContent = option;
+                select.appendChild(optElement);
+            });
+        }
+        
+        // Génération du graphique
+        document.getElementById('generate-chart').addEventListener('click', () => {
+            if (!parsedData || !parsedData.data || parsedData.data.length === 0) {
+                alert("Aucune donnée disponible. Veuillez d'abord importer ou coller des données.");
+                return;
+            }
+            
+            const controlType = document.getElementById('control-type').value;
+            
+            if (controlType === 'crm') {
+                generateCRMChart();
+            } else if (controlType === 'duplicate') {
+                generateDuplicateChart();
+            } else if (controlType === 'blank') {
+                generateBlankChart();
+            }
+        });
+        
+        // Fonction pour générer une carte de contrôle CRM
+        function generateCRMChart() {
+            const idColumn = document.getElementById('crm-id-column').value;
+            const valueColumn = document.getElementById('crm-value-column').value;
+            const referenceValue = parseFloat(document.getElementById('reference-value').value);
+            const referenceStdDev = parseFloat(document.getElementById('reference-stddev').value);
+            
+            const toleranceType = document.querySelector('input[name="tolerance-type"]:checked').value;
+            let upperLimit, lowerLimit;
+            
+            if (isNaN(referenceValue)) {
+                alert("Veuillez entrer une valeur de référence valide.");
+                return;
+            }
+            
+            // Calcul des limites en fonction du type de tolérance
+            if (toleranceType === 'percent') {
+                const tolerancePercent = parseFloat(document.getElementById('tolerance-percent-value').value) / 100;
+                upperLimit = referenceValue * (1 + tolerancePercent);
+                lowerLimit = referenceValue * (1 - tolerancePercent);
+            } else { // stddev
+                if (isNaN(referenceStdDev)) {
+                    alert("Veuillez entrer une valeur d'écart-type de référence valide.");
+                    return;
+                }
+                const toleranceStdDev = parseFloat(document.getElementById('tolerance-stddev-value').value);
+                upperLimit = referenceValue + (toleranceStdDev * referenceStdDev);
+                lowerLimit = referenceValue - (toleranceStdDev * referenceStdDev);
+            }
+            
+            const data = parsedData.data.map(row => ({
+                id: row[idColumn],
+                value: parseFloat(row[valueColumn])
+            })).filter(item => !isNaN(item.value));
+            
+            if (data.length === 0) {
+                alert("Aucune donnée valide trouvée pour l'analyse.");
+                return;
+            }
+            
+            // Calcul des statistiques
+            const values = data.map(item => item.value);
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const stdDev = Math.sqrt(values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            
+            // Création du graphique
+            const ctx = document.getElementById('chart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Filtrer les données pour ne pas avoir de valeurs null ou undefined
+            const validData = data.filter(d => d.id && d.value !== undefined && d.value !== null);
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: validData.map(item => item.id),
+                    datasets: [
+                        {
+                            label: 'Valeur mesurée',
+                            data: validData.map(item => item.value),
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: 'Valeur référence',
+                            data: Array(validData.length).fill(referenceValue),
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Limite supérieure',
+                            data: Array(validData.length).fill(upperLimit),
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Limite inférieure',
+                            data: Array(validData.length).fill(lowerLimit),
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: false,
+                            title: {
+                                display: true,
+                                text: valueColumn
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: idColumn
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `GeoQAQC - Carte de Contrôle CRM - ${valueColumn}`
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const dataIndex = context.dataIndex;
+                                    const datasetIndex = context.datasetIndex;
+                                    
+                                    if (datasetIndex === 0) {
+                                        const value = validData[dataIndex].value;
+                                        const deviation = ((value - referenceValue) / referenceValue) * 100;
+                                        const zScore = referenceStdDev ? ((value - referenceValue) / referenceStdDev) : null;
+                                        
+                                        const labels = [
+                                            `ID: ${validData[dataIndex].id}`,
+                                            `Valeur: ${value.toFixed(4)}`,
+                                            `Écart: ${deviation.toFixed(2)}%`
+                                        ];
+                                        
+                                        if (zScore !== null) {
+                                            labels.push(`Z-score: ${zScore.toFixed(2)}`);
+                                        }
+                                        
+                                        return labels;
+                                    } else {
+                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(4);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Affichage des statistiques
+            document.getElementById('results').style.display = 'block';
+            
+            let toleranceInfo = '';
+            if (toleranceType === 'percent') {
+                const tolerancePercent = parseFloat(document.getElementById('tolerance-percent-value').value);
+                toleranceInfo = `Tolérance: ${tolerancePercent.toFixed(2)}%`;
+            } else {
+                const toleranceStdDev = parseFloat(document.getElementById('tolerance-stddev-value').value);
+                toleranceInfo = `Tolérance: ${toleranceStdDev.toFixed(1)} × écart-type`;
+            }
+            
+            document.getElementById('stats-summary').innerHTML = `
+                <p><strong>Statistiques:</strong></p>
+                <p>Valeur de référence: ${referenceValue.toFixed(4)}</p>
+                ${referenceStdDev ? `<p>Écart-type de référence: ${referenceStdDev.toFixed(4)}</p>` : ''}
+                <p>${toleranceInfo}</p>
+                <p>Limite supérieure: ${upperLimit.toFixed(4)}</p>
+                <p>Limite inférieure: ${lowerLimit.toFixed(4)}</p>
+                <p>Moyenne: ${mean.toFixed(4)}</p>
+                <p>Écart-type: ${stdDev.toFixed(4)}</p>
+                <p>Min: ${min.toFixed(4)}</p>
+                <p>Max: ${max.toFixed(4)}</p>
+            `;
+            
+            // Tableau des données
+            const tableContainer = document.getElementById('data-table-container');
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Valeur</th>
+                            <th>Écart (%)</th>
+                            ${referenceStdDev ? '<th>Z-score</th>' : ''}
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            validData.forEach(item => {
+                const deviation = ((item.value - referenceValue) / referenceValue) * 100;
+                const zScore = referenceStdDev ? ((item.value - referenceValue) / referenceStdDev) : null;
+                const status = (item.value <= upperLimit && item.value >= lowerLimit) ? 'OK' : 'Hors limites';
+                const statusClass = status === 'OK' ? 'status-ok' : 'status-error';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.value.toFixed(4)}</td>
+                        <td>${deviation.toFixed(2)}%</td>
+                        ${referenceStdDev ? `<td>${zScore.toFixed(2)}</td>` : ''}
+                        <td class="${statusClass}">${status}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            tableContainer.innerHTML = tableHTML;
+        }
+        
+        // Fonction pour générer une carte de contrôle pour les duplicatas
+        function generateDuplicateChart() {
+            const originalColumn = document.getElementById('duplicate-original-column').value;
+            const replicateColumn = document.getElementById('duplicate-replicate-column').value;
+            
+            const data = parsedData.data.map(row => ({
+                original: parseFloat(row[originalColumn]),
+                replicate: parseFloat(row[replicateColumn])
+            })).filter(item => !isNaN(item.original) && !isNaN(item.replicate));
+            
+            if (data.length === 0) {
+                alert("Aucune donnée valide trouvée pour l'analyse.");
+                return;
+            }
+            
+            // Calcul de la régression linéaire
+            const x = data.map(item => item.original);
+            const y = data.map(item => item.replicate);
+            
+            const n = x.length;
+            const sumX = x.reduce((a, b) => a + b, 0);
+            const sumY = y.reduce((a, b) => a + b, 0);
+            const sumXY = x.reduce((a, b, i) => a + b * y[i], 0);
+            const sumXX = x.reduce((a, b) => a + b * b, 0);
+            
+            const slope = (n * sumXY - sumX * sumY) / (n * sumXX - sumX * sumX);
+            const intercept = (sumY - slope * sumX) / n;
+            const r = (n * sumXY - sumX * sumY) / 
+                    Math.sqrt((n * sumXX - sumX * sumX) * (n * y.reduce((a, b) => a + b * b, 0) - sumY * sumY));
+            
+            // Calcul des statistiques
+            const differences = data.map(item => Math.abs(item.replicate - item.original));
+            const meanDiff = differences.reduce((a, b) => a + b, 0) / differences.length;
+            const relativeDiff = data.map(item => {
+                const avg = (item.original + item.replicate) / 2;
+                return avg !== 0 ? Math.abs(item.replicate - item.original) / avg * 100 : 0;
+            });
+            const meanRelativeDiff = relativeDiff.reduce((a, b) => a + b, 0) / relativeDiff.length;
+            
+            // Création du graphique
+            const ctx = document.getElementById('chart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            // Trouver les valeurs min et max pour définir les limites du graphique
+            const minVal = Math.min(Math.min(...x), Math.min(...y));
+            const maxVal = Math.max(Math.max(...x), Math.max(...y));
+            const range = maxVal - minVal;
+            
+            // Créer des points pour la ligne de régression
+            const regressionPoints = [];
+            const step = range / 10;
+            for (let i = minVal - step; i <= maxVal + step; i += step) {
+                regressionPoints.push({
+                    x: i,
+                    y: slope * i + intercept
+                });
+            }
+            
+            // Créer des points pour la ligne d'égalité parfaite (y = x)
+            const idealPoints = [];
+            for (let i = minVal - step; i <= maxVal + step; i += step) {
+                idealPoints.push({
+                    x: i,
+                    y: i
+                });
+            }
+            
+            chartInstance = new Chart(ctx, {
+                type: 'scatter',
+                data: {
+                    datasets: [
+                        {
+                            label: 'Duplicatas',
+                            data: data.map(item => ({
+                                x: item.original,
+                                y: item.replicate
+                            })),
+                            backgroundColor: 'rgba(75, 192, 192, 0.8)',
+                            pointRadius: 6,
+                            pointHoverRadius: 8
+                        },
+                        {
+                            label: 'Régression linéaire',
+                            data: regressionPoints,
+                            showLine: true,
+                            fill: false,
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            backgroundColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            pointRadius: 0
+                        },
+                        {
+                            label: 'Ligne d\'égalité (y=x)',
+                            data: idealPoints,
+                            showLine: true,
+                            fill: false,
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            backgroundColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        x: {
+                            type: 'linear',
+                            position: 'bottom',
+                            title: {
+                                display: true,
+                                text: originalColumn
+                            }
+                        },
+                        y: {
+                            title: {
+                                display: true,
+                                text: replicateColumn
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `GeoQAQC - Analyse des Duplicatas - ${originalColumn} vs ${replicateColumn}`
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const datasetIndex = context.datasetIndex;
+                                    
+                                    if (datasetIndex === 0) {
+                                        const original = context.parsed.x;
+                                        const replicate = context.parsed.y;
+                                        const diff = Math.abs(replicate - original);
+                                        const relativeDiff = ((replicate - original) / ((original + replicate) / 2)) * 100;
+                                        
+                                        return [
+                                            `Original: ${original.toFixed(4)}`,
+                                            `Duplicata: ${replicate.toFixed(4)}`,
+                                            `Diff. abs.: ${diff.toFixed(4)}`,
+                                            `Diff. rel.: ${relativeDiff.toFixed(2)}%`
+                                        ];
+                                    } else {
+                                        return context.dataset.label;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Affichage des statistiques
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('stats-summary').innerHTML = `
+                <p><strong>Statistiques:</strong></p>
+                <p>Équation de régression: y = ${slope.toFixed(4)}x + ${intercept.toFixed(4)}</p>
+                <p>Coefficient de corrélation (R²): ${(r * r).toFixed(4)}</p>
+                <p>Différence absolue moyenne: ${meanDiff.toFixed(4)}</p>
+                <p>Différence relative moyenne: ${meanRelativeDiff.toFixed(2)}%</p>
+            `;
+            
+            // Tableau des données
+            const tableContainer = document.getElementById('data-table-container');
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>${originalColumn}</th>
+                            <th>${replicateColumn}</th>
+                            <th>Diff. Abs.</th>
+                            <th>Diff. Rel. (%)</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.forEach((item, index) => {
+                const diffAbs = Math.abs(item.replicate - item.original);
+                const avg = (item.original + item.replicate) / 2;
+                const diffRel = avg !== 0 ? (Math.abs(item.replicate - item.original) / avg) * 100 : 0;
+                
+                tableHTML += `
+                    <tr>
+                        <td>${item.original.toFixed(4)}</td>
+                        <td>${item.replicate.toFixed(4)}</td>
+                        <td>${diffAbs.toFixed(4)}</td>
+                        <td>${diffRel.toFixed(2)}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            tableContainer.innerHTML = tableHTML;
+        }
+        
+        // Fonction pour générer une carte de contrôle pour les blancs
+        function generateBlankChart() {
+            const idColumn = document.getElementById('blank-id-column').value;
+            const valueColumn = document.getElementById('blank-value-column').value;
+            
+            const data = parsedData.data.map(row => ({
+                id: row[idColumn],
+                value: parseFloat(row[valueColumn])
+            })).filter(item => !isNaN(item.value));
+            
+            if (data.length === 0) {
+                alert("Aucune donnée valide trouvée pour l'analyse.");
+                return;
+            }
+            
+            // Calcul des statistiques
+            const values = data.map(item => item.value);
+            const mean = values.reduce((a, b) => a + b, 0) / values.length;
+            const stdDev = Math.sqrt(values.reduce((a, b) => a + Math.pow(b - mean, 2), 0) / values.length);
+            const min = Math.min(...values);
+            const max = Math.max(...values);
+            
+            // Limites de détection estimées
+            const lod = mean + 3 * stdDev;
+            
+            // Création du graphique
+            const ctx = document.getElementById('chart').getContext('2d');
+            
+            if (chartInstance) {
+                chartInstance.destroy();
+            }
+            
+            chartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: data.map(item => item.id),
+                    datasets: [
+                        {
+                            label: 'Valeur mesurée',
+                            data: data.map(item => item.value),
+                            borderColor: 'rgba(75, 192, 192, 1)',
+                            backgroundColor: 'rgba(75, 192, 192, 0.2)',
+                            borderWidth: 2,
+                            pointRadius: 5,
+                            pointHoverRadius: 7
+                        },
+                        {
+                            label: 'Moyenne',
+                            data: Array(data.length).fill(mean),
+                            borderColor: 'rgba(54, 162, 235, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        },
+                        {
+                            label: 'Limite de détection (LOD)',
+                            data: Array(data.length).fill(lod),
+                            borderColor: 'rgba(255, 99, 132, 1)',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    scales: {
+                        y: {
+                            beginAtZero: true,
+                            title: {
+                                display: true,
+                                text: valueColumn
+                            }
+                        },
+                        x: {
+                            title: {
+                                display: true,
+                                text: idColumn
+                            }
+                        }
+                    },
+                    plugins: {
+                        title: {
+                            display: true,
+                            text: `GeoQAQC - Carte de Contrôle Blancs - ${valueColumn}`
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    const dataIndex = context.dataIndex;
+                                    const datasetIndex = context.datasetIndex;
+                                    
+                                    if (datasetIndex === 0) {
+                                        return [
+                                            `ID: ${data[dataIndex].id}`,
+                                            `Valeur: ${data[dataIndex].value.toFixed(4)}`
+                                        ];
+                                    } else {
+                                        return context.dataset.label + ': ' + context.parsed.y.toFixed(4);
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+            
+            // Affichage des statistiques
+            document.getElementById('results').style.display = 'block';
+            document.getElementById('stats-summary').innerHTML = `
+                <p><strong>Statistiques:</strong></p>
+                <p>Moyenne: ${mean.toFixed(4)}</p>
+                <p>Écart-type: ${stdDev.toFixed(4)}</p>
+                <p>Min: ${min.toFixed(4)}</p>
+                <p>Max: ${max.toFixed(4)}</p>
+                <p>Limite de détection estimée (LOD): ${lod.toFixed(4)}</p>
+            `;
+            
+            // Tableau des données
+            const tableContainer = document.getElementById('data-table-container');
+            let tableHTML = `
+                <table>
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Valeur</th>
+                            <th>Statut</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+            `;
+            
+            data.forEach(item => {
+                const status = item.value <= lod ? 'OK' : 'Élevé';
+                const statusClass = status === 'OK' ? 'status-ok' : 'status-warning';
+                
+                tableHTML += `
+                    <tr>
+                        <td>${item.id}</td>
+                        <td>${item.value.toFixed(4)}</td>
+                        <td class="${statusClass}">${status}</td>
+                    </tr>
+                `;
+            });
+            
+            tableHTML += `
+                    </tbody>
+                </table>
+            `;
+            
+            tableContainer.innerHTML = tableHTML;
+        }
+        
+        // Initialiser l'affichage
+        controlTypeSelect.dispatchEvent(new Event('change'));
+    </script>
+</body>
+</html>
